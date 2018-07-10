@@ -82,7 +82,9 @@ By default, warum will be started disabled. You can enable it by middle-clicking
 or
 
 `dbus-send --system --dest=pk.qwerty12.warum --print-reply / org.freedesktop.DBus.Properties.Get string:pk.qwerty12.warum string:Enabled` to get warum's current state
+
 `dbus-send --system --dest=pk.qwerty12.warum --print-reply / org.freedesktop.DBus.Properties.Set string:pk.qwerty12.warum string:Enabled variant:boolean:true` to enable it
+
 `dbus-send --system --dest=pk.qwerty12.warum --print-reply / org.freedesktop.DBus.Properties.Set string:pk.qwerty12.warum string:Enabled variant:boolean:false` to disable it
 
 ### With systemd without DBus
