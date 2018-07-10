@@ -168,8 +168,7 @@ static void deinit_dbus(ctx_data *ctx)
 {
     if (ctx->interface) {
         g_dbus_interface_skeleton_unexport(G_DBUS_INTERFACE_SKELETON(ctx->interface));
-        g_object_unref(ctx->interface);
-        ctx->interface = NULL;
+        g_clear_pointer(&ctx->interface, g_object_unref);
     }
     if (ctx->owner_id) {
         g_bus_unown_name(ctx->owner_id);
@@ -197,18 +196,9 @@ static void deinit_nf(gpointer user_data)
         g_source_remove(ctx->q_watch_id);
         ctx->q_watch_id = 0;
     }
-    if (ctx->channel) {
-        g_io_channel_unref(ctx->channel);
-        ctx->channel = NULL;
-    }
-    if (ctx->qh) {
-        nfq_destroy_queue(ctx->qh);
-        ctx->qh = NULL;
-    }
-    if (ctx->h) {
-        nfq_close(ctx->h);
-        ctx->h = NULL;
-    }
+    g_clear_pointer(&ctx->channel, g_io_channel_unref);
+    g_clear_pointer(&ctx->qh, nfq_destroy_queue);
+    g_clear_pointer(&ctx->h, nfq_close);
 }
 
 static void cleanup(ctx_data *ctx)
@@ -217,10 +207,7 @@ static void cleanup(ctx_data *ctx)
     deinit_dbus(ctx);
 #endif
     deinit_nf(ctx);
-    if (ctx->loop) {
-        g_main_loop_unref(ctx->loop);
-        ctx->loop = NULL;
-    }
+    g_clear_pointer(&ctx->loop, g_main_loop_unref);
 }
 
 static gboolean on_sigint(gpointer data_ptr)
@@ -325,7 +312,7 @@ static gboolean on_data(GIOChannel *source, GIOCondition condition G_GNUC_UNUSED
 {
     const ctx_data *ctx = (ctx_data*) data;
     gsize rv;
-    gchar buf[4096] __attribute__ ((aligned));
+    static gchar buf[4096] __attribute__ ((aligned));
     GError *error = NULL;
 
     if (G_UNLIKELY(condition != G_IO_IN)) {
