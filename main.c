@@ -34,8 +34,12 @@ enum {
 static gboolean init_nf(gpointer);
 static void deinit_nf(gpointer);
 
-#define BUS_WARUM_TYPE_PROPOVERRIDE (bus_warum_propoverride_get_type())
+// Yes, I know the following should really be in a seperate header file
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 G_DECLARE_FINAL_TYPE(BusWarumPropoverride, bus_warum_propoverride, BUS_WARUM, PROPOVERRIDE, BusWarumSkeleton)
+#pragma GCC diagnostic pop
+#define BUS_WARUM_TYPE_PROPOVERRIDE (bus_warum_propoverride_get_type())
 
 struct _BusWarumPropoverride {
     BusWarumSkeleton parent_instance;

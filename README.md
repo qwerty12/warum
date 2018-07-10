@@ -6,7 +6,7 @@ GoodbyeDPI's ability to "set HTTPS\[' packets\] fragmentation" works great on Wi
 
 * Sets window size of packets sent to it via NFQUEUE in userspace
 * Can be disabled/enabled over DBus
-     * A simple pure-Qt5-based tray icon can be used (well, in KDE and XFCE at least) to quickly change warum's state with no fuss
+     * A simple pure-Qt5-based tray icon frontend is provided and can be used (well, in KDE and XFCE at least) to quickly change warum's state with no fuss
 
 ## Downsides
 
@@ -103,5 +103,5 @@ I haven't tested this scenario out, in all honesty. Starting the systemd service
 ## Acknowledgments
 
 * Much of the netfilter packet handling code comes from zapret's nfqws
-* boltd's hack for having more control over DBus properties from `gdbus-codegen`'s generated code was nicer than my original one
+* boltd's hack (now removed from its code) for having more control over DBus properties from `gdbus-codegen`'s generated code was nicer than my original one
 * The iptables rule is, as best as I could manage, a straight conversion of the pertinent GoodbyeDPI WinDivert filter. I tried to make it as efficient as possible, striving to ensure only the most relevant packets are sent into userspace
