@@ -8,9 +8,9 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <linux/netfilter_ipv4.h>
+
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <libnetfilter_queue/libnetfilter_queue_tcp.h>
-
 #include <glib.h>
 #include <glib-unix.h>
 #include <gio/gio.h>
@@ -34,7 +34,7 @@ enum {
 static gboolean init_nf(gpointer);
 static void deinit_nf(gpointer);
 
-// Yes, I know the following should really be in a seperate header file
+// Yes, I know the following should really be in a separate header file
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 G_DECLARE_FINAL_TYPE(BusWarumPropoverride, bus_warum_propoverride, BUS_WARUM, PROPOVERRIDE, BusWarumSkeleton)
