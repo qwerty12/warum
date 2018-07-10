@@ -1,0 +1,22 @@
+[Unit]
+Description=@PROJECT_NAME@ SYN,ACK HTTPS packet fragmenter
+After=network-pre.target @SYSTEMD_DBUS_SERVICE@
+Wants=network-pre.target @SYSTEMD_DBUS_SERVICE@
+
+[Service]
+Environment="NFQUEUE_QNUM=200" "WINDOW_SIZE=40" "DBUS_ARGS=@SYSTEMD_DBUS_ARGS@"
+ExecStartPre=@CMAKE_INSTALL_FULL_LIBEXECDIR@/@PROJECT_NAME@/iptables_rules.sh add ${NFQUEUE_QNUM}
+ExecStart=@CMAKE_INSTALL_FULL_SBINDIR@/@PROJECT_NAME@ --qnum=${NFQUEUE_QNUM} --wsize=${WINDOW_SIZE} $DBUS_ARGS
+ExecStopPost=@CMAKE_INSTALL_FULL_LIBEXECDIR@/@PROJECT_NAME@/iptables_rules.sh remove ${NFQUEUE_QNUM}
+
+ProtectSystem=yes
+ProtectHome=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+[Install]
+WantedBy=multi-user.target
