@@ -1,13 +1,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <signal.h>
+#include <net/ethernet.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/ip.h>
-#include <linux/tcp.h>
+#include <linux/netlink.h>
 #include <linux/netfilter_ipv4.h>
-#include <linux/if_ether.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <libnetfilter_queue/libnetfilter_queue_tcp.h>
 
@@ -47,7 +47,7 @@ struct _BusWarumPropoverride {
 
 G_DEFINE_TYPE(BusWarumPropoverride, bus_warum_propoverride, BUS_TYPE_WARUM_SKELETON)
 
-static void bus_warum_propoverride_init (BusWarumPropoverride *bus G_GNUC_UNUSED){}
+static void bus_warum_propoverride_init(BusWarumPropoverride *bus G_GNUC_UNUSED){}
 
 static void bus_warum_propoverride_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
@@ -109,7 +109,7 @@ static void bus_warum_propoverride_set_enabled_original(BusWarumPropoverride *ob
 
 G_GNUC_UNUSED static void bus_warum_propoverride_class_init(BusWarumPropoverrideClass *klass)
 {
-    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->get_property = bus_warum_propoverride_get_property;
     gobject_class->set_property = bus_warum_propoverride_set_property;
@@ -117,7 +117,7 @@ G_GNUC_UNUSED static void bus_warum_propoverride_class_init(BusWarumPropoverride
 }
 
 BusWarumPropoverride *bus_warum_propoverride_new(void) {
-    return g_object_new (BUS_WARUM_TYPE_PROPOVERRIDE, NULL);
+    return g_object_new(BUS_WARUM_TYPE_PROPOVERRIDE, NULL);
 }
 #endif
 
@@ -144,7 +144,7 @@ typedef struct
 static void on_name_lost(GDBusConnection *connection G_GNUC_UNUSED, const gchar *name, gpointer user_data)
 {
     ctx_data *ctx = (ctx_data*) user_data;
-    g_printerr("Cannot register service name %s on the system bus, exiting", name);
+    g_printerr("Cannot register service name %s on the system bus, exiting\n", name);
     g_main_loop_quit(ctx->loop);
 }
 
@@ -159,7 +159,7 @@ static void on_name_acquired(GDBusConnection *connection, const gchar *name G_GN
     g_object_thaw_notify(G_OBJECT(ctx->interface));
 
     if (!g_dbus_interface_skeleton_export(G_DBUS_INTERFACE_SKELETON(ctx->interface), connection, "/", NULL)) {
-        g_warning("Could not export D-Bus interface");
+        g_printerr("Could not export D-Bus interface, exiting\n");
         g_main_loop_quit(ctx->loop);
     }
 }
@@ -179,14 +179,14 @@ static void deinit_dbus(ctx_data *ctx)
 
 static void init_dbus(ctx_data *ctx)
 {
-    ctx->owner_id = g_bus_own_name (G_BUS_TYPE_SYSTEM,
-                                    "pk.qwerty12.warum",
-                                    G_BUS_NAME_OWNER_FLAGS_NONE,
-                                    NULL,
-                                    on_name_acquired,
-                                    on_name_lost,
-                                    ctx,
-                                    NULL);
+    ctx->owner_id = g_bus_own_name(G_BUS_TYPE_SYSTEM,
+                                   "pk.qwerty12.warum",
+                                   G_BUS_NAME_OWNER_FLAGS_NONE,
+                                   NULL,
+                                   on_name_acquired,
+                                   on_name_lost,
+                                   ctx,
+                                   NULL);
 }
 #endif
 
@@ -284,7 +284,7 @@ static gboolean processPacketData(unsigned char *data, int len, const ctx_data *
     tcphdr = (struct tcphdr *) data;
     proto_skip_tcp(&data, &len);
     if (G_LIKELY(tcp_synack_segment(tcphdr))) {
-        tcphdr->window = htons((uint16_t) ctx->wsize);
+        tcphdr->window = g_htons(ctx->wsize);
         nfq_tcp_compute_checksum_ipv4(tcphdr, iphdr);
         return TRUE;
     }
@@ -302,10 +302,10 @@ static int on_handle_packet(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg G_GN
     gboolean ethertype_ipv4;
 
     if (ph) {
-        id = ntohl(ph->packet_id);
+        id = g_ntohl(ph->packet_id);
         if (G_UNLIKELY(ph->hook != NF_IP_LOCAL_IN))
             goto skip;
-        ethertype_ipv4 = ntohs(ph->hw_protocol) == ETH_P_IP;
+        ethertype_ipv4 = g_ntohs(ph->hw_protocol) == ETHERTYPE_IP;
     } else {
         id = 0;
         ethertype_ipv4 = TRUE;
@@ -367,7 +367,7 @@ static gboolean init_nf(gpointer user_data)
 
     g_debug("opening library handle");
     if (!(ctx->h = nfq_open())) {
-        g_printerr("error during nfq_open()\n");
+        g_critical("error during nfq_open()");
         return FALSE;
     }
 
@@ -377,33 +377,33 @@ static gboolean init_nf(gpointer user_data)
 
     g_debug("binding nfnetlink_queue as nf_queue handler for AF_INET");
     if (nfq_bind_pf(ctx->h, AF_INET) < 0) {
-        g_printerr("error during nfq_bind_pf()\n");
+        g_critical("error during nfq_bind_pf()");
         goto free;
     }
 
     g_debug("binding this socket to queue '%u'", ctx->qnum);
     if (!(ctx->qh = nfq_create_queue(ctx->h, (uint16_t) ctx->qnum, on_handle_packet, ctx))) {
-        g_printerr("error during nfq_create_queue()\n");
+        g_critical("error during nfq_create_queue()");
         goto free;
     }
 
     g_debug("setting copy_packet mode");
     if (nfq_set_mode(ctx->qh, NFQNL_COPY_PACKET, 0xffff) < 0) {
-        g_printerr("can't set packet_copy mode\n");
+        g_critical("can't set packet_copy mode");
         goto free;
     }
 
     if ((fd = nfq_fd(ctx->h)) != -1) {
         setsockopt(fd, SOL_NETLINK, NETLINK_NO_ENOBUFS, (int[]) {1}, sizeof(int));
         if (!(ctx->channel = g_io_channel_unix_new(fd))) {
-            g_printerr("failed to create GIOChannel\n");
+            g_critical("failed to create GIOChannel");
             goto free;
         }
         g_io_channel_set_encoding(ctx->channel, NULL, NULL);
         g_io_channel_set_buffered(ctx->channel, FALSE);
 
         if (!(ctx->q_watch_id = g_io_add_watch(ctx->channel, G_IO_IN | G_IO_HUP | G_IO_ERR, on_data, ctx))) {
-            g_printerr("failed to add nfq fd monitor\n");
+            g_critical("failed to add nfq fd monitor");
             goto free;
         }
     }
