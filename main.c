@@ -252,7 +252,7 @@ static inline gboolean tcp_synack_segment(const struct tcphdr *tcphdr)
             tcphdr->fin == 0;
 }
 
-static gboolean processPacketData(unsigned char *data, int len, const ctx_data *ctx, gboolean ethertype_ipv4)
+static inline gboolean processPacketData(unsigned char *data, int len, const ctx_data *ctx, gboolean ethertype_ipv4)
 {
     struct iphdr *iphdr = NULL;
     struct tcphdr *tcphdr = NULL;
@@ -281,12 +281,12 @@ static gboolean processPacketData(unsigned char *data, int len, const ctx_data *
 
 static int on_handle_packet(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg G_GNUC_UNUSED, struct nfq_data *nfad, void *data)
 {
-    unsigned char *payload;
+    const ctx_data *ctx = (ctx_data*) data;
     uint32_t id;
+    gboolean ethertype_ipv4;
+    unsigned char *payload;
     int len = nfq_get_payload(nfad, &payload);
     struct nfqnl_msg_packet_hdr *ph = nfq_get_msg_packet_hdr(nfad);
-    const ctx_data *ctx = (ctx_data*) data;
-    gboolean ethertype_ipv4;
 
     if (ph) {
         id = g_ntohl(ph->packet_id);
@@ -324,10 +324,9 @@ static gboolean on_data(GIOChannel *source, GIOCondition condition G_GNUC_UNUSED
     {
         case G_IO_STATUS_NORMAL:
         {
-            int r = nfq_handle_packet(ctx->h, buf, rv);
-            if (r)
-                g_critical("nfq_handle_packet error %d\n", r);
-            return TRUE;
+            if (nfq_handle_packet(ctx->h, buf, rv))
+                g_critical("nfq_handle_packet error");
+            break;
         }
         case G_IO_STATUS_ERROR:
             g_printerr("error in g_io_channel_read_chars() (%s), exiting\n", error->message);
