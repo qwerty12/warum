@@ -195,8 +195,14 @@ static void deinit_nf(gpointer user_data)
         ctx->q_watch_id = 0;
     }
     g_clear_pointer(&ctx->channel, g_io_channel_unref);
-    g_clear_pointer(&ctx->qh, nfq_destroy_queue);
-    g_clear_pointer(&ctx->h, nfq_close);
+    if (ctx->qh) {
+        nfq_destroy_queue(ctx->qh);
+        ctx->qh = NULL;
+    }
+    if (ctx->h) {
+        nfq_close(ctx->h);
+        ctx->h = NULL;
+    }
 }
 
 static void cleanup(ctx_data *ctx)
