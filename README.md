@@ -16,6 +16,7 @@ GoodbyeDPI's ability to "set HTTPS\[' packets\] fragmentation" works great on Wi
     * There is no API to add iptables rules so `warum` proper doesn't try; it blindly assumes the appropriate rules are present and nor does it make any attempt to clear the rules on exit.  
          The use of `--queue-bypass` in the iptables rule allows matching packets to be blindly accepted even if a program isn't attached to the pertaining queue. `--queue-bypass` is "available since Linux kernel 2.6.39" and "broken from kernel 3.10 to 3.12" - on desktop Linux, this shouldn't be a problem. (The provided systemd .service attempts to have the rules added and cleared before starting and exiting, respectively.)
 * Code is probably of questionable quality ¯\\_()_/¯
+* TODO: warumtray is using an icon specific to the Papirus icon theme; you might not actually see the icon in the tray...
 
 (I should point out that zapret's nfqws can already do what warum does, but with a far smaller footprint. You can use that instead with the iptables rules here.)
 
@@ -71,6 +72,7 @@ Environment="NFQUEUE_QNUM=200" "WINDOW_SIZE=40" "DBUS_ARGS=--dbus -d"
 
 ### With systemd+DBus (recommended)
 
+`systemctl daemon-reload` (if running straight after installing)
 `systemctl enable warum --now`
 
 and
