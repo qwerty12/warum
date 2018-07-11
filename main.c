@@ -69,10 +69,8 @@ static void bus_warum_propoverride_set_property(GObject *object, guint prop_id, 
 
     if (prop_id == PROP_ENABLED) {
         gpointer ctx;
-        gboolean parent_enabled;
-        g_object_get(object, "enabled", &parent_enabled, NULL);
 
-        if (parent_enabled == g_value_get_boolean(value))
+        if (bus_warum_get_enabled(BUS_WARUM(object)) == g_value_get_boolean(value))
             return;
 
         ctx = g_object_get_data(object, "data");
