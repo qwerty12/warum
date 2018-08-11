@@ -13,7 +13,7 @@ GoodbyeDPI's ability to "set HTTPS\[' packets\] fragmentation" works great on Wi
 * Only provides an equivalent to GDPI's `-e` option (GDPI wouldn't work for HTTP sites here, so that was the only functionality copied)
 * No IPv6 support
 * This is made with desktop Linux in mind, not routers etc. so it happily uses GLib and prefers to be made available over DBus (though without auto-activation)
-    * There is no API to add iptables rules so `warum` proper doesn't try; it blindly assumes the appropriate rules are present and nor does it make any attempt to clear the rules on exit.  
+    * There is no API to add iptables rules so `warum` proper doesn't try; it blindly assumes the appropriate rules are present and nor does it make any attempt to clear the rules on exit.
          The use of `--queue-bypass` in the iptables rule allows matching packets to be blindly accepted even if a program isn't attached to the pertaining queue. `--queue-bypass` is "available since Linux kernel 2.6.39" and "broken from kernel 3.10 to 3.12" - on desktop Linux, this shouldn't be a problem. (The provided systemd .service attempts to have the rules added and cleared before starting and exiting, respectively.)
 * Code is probably of questionable quality ¯\\_()_/¯
 * TODO: warumtray is using an icon specific to the Papirus icon theme; you might not actually see the icon in the tray...
@@ -88,6 +88,30 @@ or
 `dbus-send --system --dest=pk.qwerty12.warum --print-reply / org.freedesktop.DBus.Properties.Set string:pk.qwerty12.warum string:Enabled variant:boolean:true` to enable it
 
 `dbus-send --system --dest=pk.qwerty12.warum --print-reply / org.freedesktop.DBus.Properties.Set string:pk.qwerty12.warum string:Enabled variant:boolean:false` to disable it
+
+### firewalld + DBus-enabled warum
+
+It's possible to use warum in combination with the excellent firewalld, but it requires more work.
+
+First, `systemctl edit warum.service`:
+
+```
+[Unit]
+After=
+Wants=
+After=network-pre.target dbus.service firewalld.service
+Wants=network-pre.target dbus.service firewalld.service
+
+[Service]
+# qnum must match firewalld's direct iptables rule setting
+ExecStartPre=
+ExecStartPost=
+```
+
+We want warum to start after firewalld has, and for the systemd service to not run the script adding/removing the needed iptables rules.
+Next step is get firewalld to add the needed rules itself, which can be done with `/usr/libexec/warum/iptables_rules.sh add <qnum from systemd service file> --firewalld`. After reloading firewalld to get the rules from the Permanent configuration into Runtime, you should be able to use warum.
+
+(Sadly, this means firewalld will always add warum's iptables regardless of whether it is running or not. It's not possible to add new ipsets to firewalld's runtime configuration.)
 
 ### With systemd without DBus
 

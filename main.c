@@ -43,6 +43,7 @@ G_DECLARE_FINAL_TYPE(BusWarumPropoverride, bus_warum_propoverride, BUS_WARUM, PR
 
 struct _BusWarumPropoverride {
     BusWarumSkeleton parent_instance;
+    gpointer *ctx;
 };
 
 G_DEFINE_TYPE(BusWarumPropoverride, bus_warum_propoverride, BUS_TYPE_WARUM_SKELETON)
@@ -52,9 +53,9 @@ static void bus_warum_propoverride_init(BusWarumPropoverride *bus G_GNUC_UNUSED)
 static void bus_warum_propoverride_get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
     if (prop_id > PROP_LAST) {
-        GParamSpec *parent;
+        GParamSpec *parent = g_object_class_find_property(bus_warum_propoverride_parent_class, pspec->name);
 
-        if (!(parent = g_object_class_find_property(bus_warum_propoverride_parent_class, pspec->name)))
+        if (!parent)
             return;
 
         prop_id -= PROP_LAST;
@@ -73,7 +74,7 @@ static void bus_warum_propoverride_set_property(GObject *object, guint prop_id, 
         if (bus_warum_get_enabled(BUS_WARUM(object)) == g_value_get_boolean(value))
             return;
 
-        ctx = g_object_get_data(object, "data");
+        ctx = BUS_WARUM_PROPOVERRIDE(object)->ctx;
         if (g_value_get_boolean(value)) {
             if (!init_nf(ctx))
                 return;
@@ -114,8 +115,11 @@ G_GNUC_UNUSED static void bus_warum_propoverride_class_init(BusWarumPropoverride
     g_object_class_override_property(gobject_class, PROP_ENABLED, "enabled");
 }
 
-BusWarumPropoverride *bus_warum_propoverride_new(void) {
-    return g_object_new(BUS_WARUM_TYPE_PROPOVERRIDE, NULL);
+BusWarumPropoverride *bus_warum_propoverride_new(gpointer ctx) {
+    g_return_val_if_fail(ctx != NULL, NULL);
+    BusWarumPropoverride *ret = g_object_new(BUS_WARUM_TYPE_PROPOVERRIDE, NULL);
+    ret->ctx = ctx;
+    return ret;
 }
 #endif
 
@@ -150,8 +154,7 @@ static void on_name_acquired(GDBusConnection *connection, const gchar *name G_GN
 {
     ctx_data *ctx = (ctx_data*) user_data;
 
-    ctx->interface = bus_warum_propoverride_new();
-    g_object_set_data(G_OBJECT(ctx->interface), "data", user_data);
+    ctx->interface = bus_warum_propoverride_new(user_data);
     g_object_freeze_notify(G_OBJECT(ctx->interface));
     bus_warum_propoverride_set_enabled_original(ctx->interface, !ctx->start_disabled);
     g_object_thaw_notify(G_OBJECT(ctx->interface));
