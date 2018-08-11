@@ -109,9 +109,9 @@ ExecStartPost=
 ```
 
 We want warum to start after firewalld has, and for the systemd service to not run the script adding/removing the needed iptables rules.
-Next step is get firewalld to add the needed rules itself, which can be done with `/usr/libexec/warum/iptables_rules.sh add <qnum from systemd service file> --firewalld`. After reloading firewalld to get the rules from the Permanent configuration into Runtime, you should be able to use warum.
+The next step is get firewalld to add the needed rules itself, which can be done with `sudo /usr/libexec/warum/iptables_rules.sh add <qnum from systemd service file> --firewalld`. After reloading firewalld to get the rules from the Permanent configuration into Runtime, you should be able to use warum.
 
-(Sadly, this means firewalld will always add warum's iptables regardless of whether it is running or not. It's not possible to add new ipsets to firewalld's runtime configuration.)
+(Sadly, this means firewalld will always add warum's iptables rules regardless of whether it is running or not. It's not possible to add new ipsets to firewalld's runtime configuration.)
 
 ### With systemd without DBus
 
