@@ -5,12 +5,13 @@ GoodbyeDPI's ability to "set HTTPS\[' packets\] fragmentation" works great on Wi
 ## Features
 
 * Sets window size of packets sent to it via NFQUEUE in userspace
+* Removes space from host header (code for this shamelessly stolen from Zapret)
 * Can be disabled/enabled over DBus
      * A simple pure-Qt5-based tray icon frontend is provided and can be used (well, in KDE and XFCE at least) to quickly change warum's state with no fuss
 
 ## Downsides
 
-* Only provides an equivalent to GDPI's `-e` option (GDPI wouldn't work for HTTP sites here, so that was the only functionality copied)
+* Only provides an equivalent to GDPI's `-e` and `-s` options
 * No IPv6 support
 * This is made with desktop Linux in mind, not routers etc. so it happily uses GLib and prefers to be made available over DBus (though without auto-activation)
     * There is no API to add iptables rules so `warum` proper doesn't try; it blindly assumes the appropriate rules are present and nor does it make any attempt to clear the rules on exit.
@@ -50,6 +51,7 @@ Not much to talk about here. `warum` has two main command-line arguments:
 | --- | --- |
 | --qnum=`N`    | Number of the NFQUEUE rule to attach to. Must match the number of the corresponding iptables rule    |
 | --wsize=`N`    | Set fragmentation of HTTPS packets to this number    |
+| --remove-host-space    | Remove space between host header and its value (for HTTP packets only) |
 
 With DBus support enabled, the following arguments can be additionally passed to warum:
 
@@ -121,7 +123,7 @@ I haven't tested this scenario out, in all honesty. Starting the systemd service
 
 ```
 # /usr/libexec/warum/iptables_rules.sh add 200
-# /usr/sbin/warum --qnum=200 --wsize=40
+# /usr/sbin/warum --qnum=200 --wsize=40 --remove-host-space
 ... when done with warum
 # /usr/libexec/warum/iptables_rules.sh remove 200
 ```

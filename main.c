@@ -1,5 +1,9 @@
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stdint.h>
+#include <limits.h>
+#include <string.h>
 #include <signal.h>
 #include <net/ethernet.h>
 #include <netinet/ip.h>
@@ -127,6 +131,7 @@ typedef struct
 {
     int qnum;
     int wsize;
+    gboolean host_removespace;
     guint q_watch_id;
 #ifdef DBUS_ENABLE
     gboolean enable_dbus;
@@ -259,13 +264,13 @@ static inline gboolean tcp_synack_segment(const struct tcphdr *tcphdr)
             tcphdr->fin == 0;
 }
 
-static inline gboolean processPacketData(unsigned char *data, int len, const ctx_data *ctx, gboolean ethertype_ipv4)
+static inline gboolean processPacketData(unsigned char *data, int len, const ctx_data *ctx, __u8 direction)
 {
     struct iphdr *iphdr = NULL;
     struct tcphdr *tcphdr = NULL;
     uint8_t proto;
 
-    if (G_UNLIKELY(!ethertype_ipv4) || !proto_check_ipv4(data, len))
+    if (!proto_check_ipv4(data, len))
         return FALSE;
 
     iphdr = (struct iphdr *) data;
@@ -274,13 +279,34 @@ static inline gboolean processPacketData(unsigned char *data, int len, const ctx
 
     if (proto != IPPROTO_TCP || !proto_check_tcp(data, len))
         return FALSE;
-
     tcphdr = (struct tcphdr *) data;
     proto_skip_tcp(&data, &len);
-    if (G_LIKELY(tcp_synack_segment(tcphdr))) {
-        tcphdr->window = g_htons(ctx->wsize);
-        nfq_tcp_compute_checksum_ipv4(tcphdr, iphdr);
-        return TRUE;
+
+    if (direction == NF_IP_LOCAL_IN || direction == UCHAR_MAX) {
+        if (ctx->wsize > 0 && G_LIKELY(tcp_synack_segment(tcphdr)) && G_LIKELY(tcphdr->th_sport == g_htons(443))) {
+            tcphdr->window = g_htons(ctx->wsize);
+            nfq_tcp_compute_checksum_ipv4(tcphdr, iphdr);
+            return TRUE;
+        }
+    }
+
+    if (direction == NF_IP_POST_ROUTING || direction == UCHAR_MAX) {
+        if (ctx->host_removespace && /*G_LIKELY(len > 16) && */ G_LIKELY(tcphdr->th_dport == g_htons(80))) {
+            unsigned char *phost, *pua;
+            if ((phost = memmem(data, len, "\r\nHost: ", 8)))  {
+                if ((pua = memmem(data, len, "\r\nUser-Agent: ", 14)) && (pua = memmem(pua+1, len-(pua-data)-1, "\r\n", 2)))  {
+                    if (pua > phost)  {
+                        memmove(phost+7, phost+8, pua-phost-8);
+                        phost[pua-phost-1] = ' ';
+                    } else  {
+                        memmove(pua+1, pua, phost-pua+7);
+                        *pua = ' ';
+                    }
+                    nfq_tcp_compute_checksum_ipv4(tcphdr, iphdr);
+                    return TRUE;
+                }
+            }
+        }
     }
 
     return FALSE;
@@ -291,27 +317,27 @@ static int on_handle_packet(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg G_GN
     const ctx_data *ctx = (ctx_data*) data;
     uint32_t id;
     gboolean ethertype_ipv4;
+    __u8 direction;
     unsigned char *payload;
     int len = nfq_get_payload(nfad, &payload);
     struct nfqnl_msg_packet_hdr *ph = nfq_get_msg_packet_hdr(nfad);
 
     if (ph) {
         id = g_ntohl(ph->packet_id);
-        if (G_UNLIKELY(ph->hook != NF_IP_LOCAL_IN))
-            goto skip;
+        direction = ph->hook;
         ethertype_ipv4 = g_ntohs(ph->hw_protocol) == ETHERTYPE_IP;
     } else {
         id = 0;
+        direction = UCHAR_MAX;
         ethertype_ipv4 = TRUE;
     }
 
-    if (len >= (int) sizeof(struct iphdr))
+    if (G_LIKELY(ethertype_ipv4) && len >= (int) sizeof(struct iphdr))
     {
-        if (processPacketData(payload, len, ctx, ethertype_ipv4))
+        if (processPacketData(payload, len, ctx, direction))
             return nfq_set_verdict(qh, id, NF_ACCEPT, len, payload);
     }
 
-skip:
     return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
@@ -415,6 +441,7 @@ static gboolean parse_args(int *argc, char **argv[], ctx_data *ctx)
     {
         { "qnum", 'q', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &ctx->qnum, "Attach to nfqueue N (defaults to " G_STRINGIFY(DEFAULT_QUEUE_NUM) ")", "N" },
         { "wsize", 'w', G_OPTION_FLAG_NONE, G_OPTION_ARG_INT, &ctx->wsize, "Set window size of HTTPS packets to W (defaults to " G_STRINGIFY(DEFAULT_WINDOW_SIZE) ")", "W" },
+        { "remove-host-space", 's', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &ctx->host_removespace, "Remove space between host header and its value (defaults to no)", NULL },
 #ifdef DBUS_ENABLE
         { "dbus", 0, G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &ctx->enable_dbus, "Register on the system bus (defaults to no)", NULL },
         { "disable", 'd', G_OPTION_FLAG_NONE, G_OPTION_ARG_NONE, &ctx->start_disabled, "Start in a disabled state (defaults to no)", NULL },

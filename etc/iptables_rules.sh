@@ -31,6 +31,19 @@ iptables_args="INPUT \
                -m u32 --u32 2&0xFFFF=0x0:0xF \
                -j NFQUEUE --queue-num "${qnum}" --queue-bypass"
 
+iptables_args2="-t mangle \
+                -I POSTROUTING \
+                -p tcp --tcp-flags ACK ACK \
+                --dport 80 \
+                -m set ! --match-set warum_no_localnets dst \
+                -j NFQUEUE --queue-num "${qnum}" --queue-bypass"
+iptables_args2_rm="-t mangle \
+                -D POSTROUTING \
+                -p tcp --tcp-flags ACK ACK \
+                --dport 80 \
+                -m set ! --match-set warum_no_localnets dst \
+                -j NFQUEUE --queue-num "${qnum}" --queue-bypass"
+
 add() {
 	if [ -n "$firewalld" ]; then
 		"${firewalld}" --permanent --new-ipset="${ipset_name}" --type="${ipset_type}" --family=inet >/dev/null
@@ -38,20 +51,24 @@ add() {
 			"${firewalld}" --permanent --ipset="${ipset_name}" --add-entry="$i" >/dev/null
 		done
 		"${firewalld}" --permanent --direct --add-passthrough ipv4 -A ${iptables_args} >/dev/null
+		"${firewalld}" --permanent --direct --add-passthrough ipv4 ${iptables_args2} >/dev/null
 	else
 		"${ipset}" create "${ipset_name}" "${ipset_type}"
 		for i in $ipset_ips; do
 			"${ipset}" add "${ipset_name}" "$i"
 		done
 		"${iptables}" -A ${iptables_args}
+		"${iptables}" ${iptables_args2}
 	fi
 }
 
 remove() {
 	if [ -n "$firewalld" ]; then
+		"${firewalld}" --permanent --direct --remove-passthrough ipv4 ${iptables_args2}
 		"${firewalld}" --permanent --direct --remove-passthrough ipv4 -A ${iptables_args}
 		"${firewalld}" --permanent --delete-ipset="${ipset_name}"
 	else
+		"${iptables}" ${iptables_args2_rm}
 		"${iptables}" -D ${iptables_args}
 		"${ipset}" destroy "${ipset_name}"
 	fi
